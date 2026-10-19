@@ -496,6 +496,7 @@ function renderStatsCard(
 }
 
 
+
 function renderLanguagesCard(
   stats: GitHubStats,
   theme: ThemeColors,
@@ -512,13 +513,20 @@ function renderLanguagesCard(
   const barWidth = 329;
   const barHeight = 12;
   const borderRadius = 6;
+  const cardHeight = 310;
+  const cardWidth = 377;
   const clipId = `langBar-${uid}`;
 
   let currentX = 0;
-  const segments: { x: number; width: number; color: string }[] = [];
 
-  // Start with the top 8 languages.
-  const topLangs = languages.slice(0, 8);
+  const segments: {
+    x: number;
+    width: number;
+    color: string;
+  }[] = [];
+
+  // Display the top 15 languages.
+  const topLangs = languages.slice(0, 15);
 
   // Normalize the selected languages to 100%.
   const totalPercentage = topLangs.reduce(
@@ -532,63 +540,105 @@ function renderLanguagesCard(
       : 0
   );
 
-  // Cap each language at 25% and redistribute excess proportionally.
+  // Custom maximum shares for the first three languages.
+  // All remaining languages have a maximum share of 25%.
+  const getCap = (index: number): number => {
+    if (index === 0) return 29.6;
+    if (index === 1) return 24.9;
+    if (index === 2) return 19.2;
+    return 25;
+  };
+
   const adjustedPercentages = topLangs.map(() => 0);
+
   let remaining = 100;
   let active = topLangs.map((_, index) => index);
 
-  while (active.length > 0) {
+  // Iteratively cap languages and redistribute excess
+  // proportionally among languages that have not reached their cap.
+  while (active.length > 0 && remaining > 0.000001) {
     const weightSum = active.reduce(
       (sum, index) => sum + weights[index],
       0
     );
 
     if (weightSum === 0) {
-      // If all remaining weights are zero, distribute equally.
-      const share = remaining / active.length;
+      // Fallback for zero-weight languages.
+      let available = remaining;
+      let candidates = [...active];
 
-      active.forEach((index) => {
-        adjustedPercentages[index] = Math.min(25, share);
-      });
+      while (candidates.length > 0 && available > 0.000001) {
+        const share = available / candidates.length;
 
+        const capped = candidates.filter(
+          (index) => share >= getCap(index)
+        );
+
+        if (capped.length === 0) {
+          candidates.forEach((index) => {
+            adjustedPercentages[index] += share;
+          });
+          available = 0;
+          break;
+        }
+
+        capped.forEach((index) => {
+          const capRemaining =
+            getCap(index) - adjustedPercentages[index];
+
+          adjustedPercentages[index] += capRemaining;
+          available -= capRemaining;
+        });
+
+        candidates = candidates.filter(
+          (index) => !capped.includes(index)
+        );
+      }
+
+      remaining = 0;
       break;
     }
 
-    // Find languages that would exceed the 25% cap.
-    const capped = active.filter(
-      (index) => (remaining * weights[index]) / weightSum > 25
-    );
+    const capped = active.filter((index) => {
+      const proposedShare =
+        (remaining * weights[index]) / weightSum;
+
+      return (
+        proposedShare >
+        getCap(index) - adjustedPercentages[index]
+      );
+    });
 
     if (capped.length === 0) {
-      // Distribute the remaining percentage proportionally.
       active.forEach((index) => {
-        adjustedPercentages[index] =
+        adjustedPercentages[index] +=
           (remaining * weights[index]) / weightSum;
       });
 
+      remaining = 0;
       break;
     }
 
-    // Cap these languages and redistribute their excess.
     capped.forEach((index) => {
-      adjustedPercentages[index] = 25;
-      remaining -= 25;
+      const capRemaining =
+        getCap(index) - adjustedPercentages[index];
+
+      adjustedPercentages[index] += capRemaining;
+      remaining -= capRemaining;
     });
 
-    active = active.filter((index) => !capped.includes(index));
+    active = active.filter(
+      (index) => !capped.includes(index)
+    );
   }
 
-  // Use the same adjusted values for the bar and legend.
-  const validLangs = topLangs
-    .map((lang, index) => ({
-      ...lang,
-      adjustedPercentage: adjustedPercentages[index],
-    }))
-    .filter(
-      (lang) => (lang.adjustedPercentage / 100) * barWidth > 0.5
-    );
+  // Attach adjusted percentages to each language.
+  const validLangs = topLangs.map((lang, index) => ({
+    ...lang,
+    adjustedPercentage: adjustedPercentages[index],
+  }));
 
-  // Build the language distribution bar.
+  // Build the distribution bar.
   for (let index = 0; index < validLangs.length; index++) {
     const lang = validLangs[index];
 
@@ -602,7 +652,7 @@ function renderLanguagesCard(
 
     segments.push({
       x: round1(currentX),
-      width: round1(actualWidth),
+      width: round1(Math.max(0, actualWidth)),
       color: lang.color,
     });
 
@@ -616,7 +666,7 @@ function renderLanguagesCard(
     )
     .join("");
 
-  // Build the two-column language legend.
+  // Build the two-column legend for all 15 languages.
   let leftLangsSvg = "";
   let rightLangsSvg = "";
 
@@ -631,51 +681,66 @@ function renderLanguagesCard(
     const escapedFull = escapeHtml(fullLangName);
     const pct = lang.adjustedPercentage.toFixed(1);
 
+    const entry = `<g transform="translate(${
+      i % 2 === 0 ? 0 : 175
+    }, ${y})">
+      <title>${escapedFull} ${pct}%</title>
+      <circle cx="6" cy="7" r="5" fill="${lang.color}"/>
+      <text x="20" y="11" font-size="12" font-weight="500"
+        fill="${theme.text}" font-family="${FONT_FAMILY}"
+        letter-spacing="0.3">${escapedName}</text>
+      <text x="155" y="11" font-size="12"
+        fill="${theme.textSecondary}" font-family="${FONT_FAMILY}"
+        text-anchor="end" letter-spacing="0.2">${pct}%</text>
+    </g>`;
+
     if (i % 2 === 0) {
-      leftLangsSvg += `<g transform="translate(0, ${y})"><title>${escapedFull} ${pct}%</title><circle cx="6" cy="7" r="5" fill="${
-        lang.color
-      }"/><text x="20" y="11" font-size="12" font-weight="500" fill="${
-        theme.text
-      }" font-family="${FONT_FAMILY}" letter-spacing="0.3">${escapedName}</text><text x="155" y="11" font-size="12" fill="${
-        theme.textSecondary
-      }" font-family="${FONT_FAMILY}" text-anchor="end" letter-spacing="0.2">${pct}%</text></g>`;
+      leftLangsSvg += entry;
     } else {
-      rightLangsSvg += `<g transform="translate(175, ${y})"><title>${escapedFull} ${pct}%</title><circle cx="6" cy="7" r="5" fill="${
-        lang.color
-      }"/><text x="20" y="11" font-size="12" font-weight="500" fill="${
-        theme.text
-      }" font-family="${FONT_FAMILY}" letter-spacing="0.3">${escapedName}</text><text x="155" y="11" font-size="12" fill="${
-        theme.textSecondary
-      }" font-family="${FONT_FAMILY}" text-anchor="end" letter-spacing="0.2">${pct}%</text></g>`;
+      rightLangsSvg += entry;
     }
   }
 
   const svg = `<g class="mi-card mi-d2" transform="translate(${startX}, ${startY})">
-      <rect x="0" y="0" width="377" height="200" rx="14" fill="${
-        theme.cardBackground
-      }" stroke="${theme.border}" stroke-width="1"/>
-      <g transform="translate(24, 24)">${renderIcon(
-        "code",
-        0,
-        -1,
-        theme.accent,
-        18
-      )}<text x="28" y="14" font-size="16" font-weight="600" fill="${
-    theme.title
-  }" font-family="${FONT_FAMILY}" letter-spacing="0.3">Most Used Languages</text></g>
-      <rect class="mi-underline mi-underline-left" x="24" y="48" width="72" height="2" rx="1" fill="${theme.accent}" opacity="0.7"/>
-      <g transform="translate(24, 64)">
-        <defs><clipPath id="${clipId}"><rect x="0" y="0" width="${barWidth}" height="${barHeight}" rx="${borderRadius}"/></clipPath></defs>
-        <rect x="0" y="0" width="${barWidth}" height="${barHeight}" rx="${borderRadius}" fill="${
-    theme.background
-  }"/>
-        <g class="mi-bar" clip-path="url(#${clipId})">${segmentsSvg}</g>
+      <rect x="0" y="0" width="${cardWidth}" height="${cardHeight}" rx="14"
+        fill="${theme.cardBackground}" stroke="${theme.border}" stroke-width="1"/>
+
+      <g transform="translate(24, 24)">
+        ${renderIcon("code", 0, -1, theme.accent, 18)}
+        <text x="28" y="14" font-size="16" font-weight="600"
+          fill="${theme.title}" font-family="${FONT_FAMILY}"
+          letter-spacing="0.3">Most Used Languages</text>
       </g>
-      <g transform="translate(24, 92)">${leftLangsSvg}${rightLangsSvg}</g>
+
+      <rect class="mi-underline mi-underline-left"
+        x="24" y="48" width="72" height="2" rx="1"
+        fill="${theme.accent}" opacity="0.7"/>
+
+      <g transform="translate(24, 64)">
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="0" y="0" width="${barWidth}"
+              height="${barHeight}" rx="${borderRadius}"/>
+          </clipPath>
+        </defs>
+
+        <rect x="0" y="0" width="${barWidth}" height="${barHeight}"
+          rx="${borderRadius}" fill="${theme.background}"/>
+
+        <g class="mi-bar" clip-path="url(#${clipId})">
+          ${segmentsSvg}
+        </g>
+      </g>
+
+      <g transform="translate(24, 92)">
+        ${leftLangsSvg}
+        ${rightLangsSvg}
+      </g>
     </g>`;
 
-  return { svg, height: 218 };
+  return { svg, height: cardHeight + 18 };
 }
+
 
 function renderStreakSection(
   stats: GitHubStats,
