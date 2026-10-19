@@ -513,7 +513,7 @@ function renderLanguagesCard(
   const barWidth = 329;
   const barHeight = 12;
   const borderRadius = 6;
-  const cardHeight = 310;
+  const cardHeight = 200;
   const cardWidth = 377;
   const clipId = `langBar-${uid}`;
 
