@@ -142,7 +142,7 @@ async function fetchHistoricalContributions(
     }
   `;
 
-  const response = await fetch(GITHUB_GRAPHQL_API, {
+  const response = await fetch(_GRAPHQL_API, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -442,6 +442,23 @@ async function executeFetchGitHubStats(username: string, hiddenLanguages: string
       },
     };
 
+    
+    const contributionRepoGroups = [
+      user.contributionsCollection.commitContributionsByRepository ?? [],
+      user.contributionsCollection.issueContributionsByRepository ?? [],
+      user.contributionsCollection.pullRequestContributionsByRepository ?? [],
+      user.contributionsCollection.pullRequestReviewContributionsByRepository ?? [],
+    ];
+    
+    const contributedRepoIds = new Set<string>();
+    
+    for (const group of contributionRepoGroups) {
+      for (const item of group) {
+        contributedRepoIds.add(item.repository.id);
+      }
+    }
+
+
     const totalStars = user.repositories.nodes.reduce((sum, repo) => sum + repo.stargazerCount, 0);
     const totalForks = user.repositories.nodes.reduce((sum, repo) => sum + repo.forkCount, 0);
 
@@ -511,7 +528,7 @@ async function executeFetchGitHubStats(username: string, hiddenLanguages: string
       totalIssues: user.contributionsCollection.totalIssueContributions,
       totalContributions: user.contributionsCollection.contributionCalendar.totalContributions,
       totalContributionsAllTime,
-      contributedRepos: user.contributionsCollection.totalRepositoryContributions,
+      contributedRepos: contributedRepoIds.size,
       languages,
       currentStreak: streaks.current,
       longestStreak: streaks.longest,
