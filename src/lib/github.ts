@@ -142,7 +142,7 @@ async function fetchHistoricalContributions(
     }
   `;
 
-  const response = await fetch(_GRAPHQL_API, {
+  const response = await fetch(GITHUB_GRAPHQL_API, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
