@@ -40,6 +40,7 @@ interface RepositoryWithLanguages {
   } | null;
 }
 
+
 const USER_COMBINED_QUERY = `
 query($username: String!) {
   user(login: $username) {
@@ -57,6 +58,20 @@ query($username: String!) {
       totalPullRequestContributions
       totalPullRequestReviewContributions
       totalRepositoryContributions
+
+      commitContributionsByRepository(maxRepositories: 200) {
+        repository { id }
+      }
+      issueContributionsByRepository(maxRepositories: 200) {
+        repository { id }
+      }
+      pullRequestContributionsByRepository(maxRepositories: 200) {
+        repository { id }
+      }
+      pullRequestReviewContributionsByRepository(maxRepositories: 200) {
+        repository { id }
+      }
+
       contributionYears
       contributionCalendar {
         totalContributions
@@ -68,7 +83,7 @@ query($username: String!) {
         }
       }
     }
-    repositories(first: 100, ownerAffiliations: OWNER, orderBy: {field: STARGAZERS, direction: DESC}, privacy: PUBLIC) {
+    repositories(first: 200, ownerAffiliations: OWNER, orderBy: {field: STARGAZERS, direction: DESC}, privacy: PUBLIC) {
       totalCount
       nodes {
         stargazerCount
@@ -88,6 +103,7 @@ query($username: String!) {
   }
 }
 `;
+
 
 async function fetchHistoricalContributions(
   username: string,
