@@ -550,7 +550,10 @@ async function executeFetchGitHubStats(username: string, hiddenLanguages: string
 }
 
 export async function fetchGitHubStats(username: string, hiddenLanguages: string[] = []): Promise<GitHubStats> {
-  const normalizedUsername = username.trim().toLowerCase();
+  const normalizedUsername = username
+  .trim()
+  .replace(/^@+/, "")
+  .toLowerCase();
   const sortedHidden = hiddenLanguages.map(l => l.trim().toLowerCase()).filter(Boolean).sort();
   const fullCacheKey = sortedHidden.length > 0 
     ? `${normalizedUsername}:hide=${sortedHidden.join(',')}` 
@@ -568,7 +571,7 @@ export async function fetchGitHubStats(username: string, hiddenLanguages: string
 
   const fetchPromise = (async () => {
     try {
-      const stats = await executeFetchGitHubStats(username.trim(), sortedHidden);
+      const stats = await executeFetchGitHubStats(normalizedUsername, sortedHidden);
       setInCache(fullCacheKey, stats);
       return stats;
     } finally {
