@@ -145,7 +145,7 @@ function getGradeColor(rank: string): string {
 }
 
 function calculateGrade(stats: GitHubStats): { grade: string; color: string } {
-  const grade = stats.rank;
+  const grade = "S";
   const color = getGradeColor(grade);
   return { grade, color };
 }
