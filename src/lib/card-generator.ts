@@ -495,6 +495,7 @@ function renderStatsCard(
   return { svg, height: 218 };
 }
 
+
 function renderLanguagesCard(
   stats: GitHubStats,
   theme: ThemeColors,
@@ -516,23 +517,95 @@ function renderLanguagesCard(
   let currentX = 0;
   const segments: { x: number; width: number; color: string }[] = [];
 
+  // Start with the top 8 languages.
   const topLangs = languages.slice(0, 8);
-  const validLangs = topLangs.filter(
-    (lang) => (lang.percentage / 100) * barWidth > 0.5
-  );
 
-  const totalPercentage = validLangs.reduce(
+  // Normalize the selected languages to 100%.
+  const totalPercentage = topLangs.reduce(
     (sum, lang) => sum + lang.percentage,
     0
   );
 
+  const weights = topLangs.map((lang) =>
+    totalPercentage > 0
+      ? (lang.percentage / totalPercentage) * 100
+      : 0
+  );
+
+  // Cap each language at 25% and redistribute excess proportionally.
+  const adjustedPercentages = topLangs.map(() => 0);
+  let remaining = 100;
+  let active = topLangs.map((_, index) => index);
+
+  while (active.length > 0) {
+    const weightSum = active.reduce(
+      (sum, index) => sum + weights[index],
+      0
+    );
+
+    if (weightSum === 0) {
+      // If all remaining weights are zero, distribute equally.
+      const share = remaining / active.length;
+
+      active.forEach((index) => {
+        adjustedPercentages[index] = Math.min(25, share);
+      });
+
+      break;
+    }
+
+    // Find languages that would exceed the 25% cap.
+    const capped = active.filter(
+      (index) => (remaining * weights[index]) / weightSum > 25
+    );
+
+    if (capped.length === 0) {
+      // Distribute the remaining percentage proportionally.
+      active.forEach((index) => {
+        adjustedPercentages[index] =
+          (remaining * weights[index]) / weightSum;
+      });
+
+      break;
+    }
+
+    // Cap these languages and redistribute their excess.
+    capped.forEach((index) => {
+      adjustedPercentages[index] = 25;
+      remaining -= 25;
+    });
+
+    active = active.filter((index) => !capped.includes(index));
+  }
+
+  // Use the same adjusted values for the bar and legend.
+  const validLangs = topLangs
+    .map((lang, index) => ({
+      ...lang,
+      adjustedPercentage: adjustedPercentages[index],
+    }))
+    .filter(
+      (lang) => (lang.adjustedPercentage / 100) * barWidth > 0.5
+    );
+
+  // Build the language distribution bar.
   for (let index = 0; index < validLangs.length; index++) {
     const lang = validLangs[index];
-    const normalizedPercentage = (lang.percentage / totalPercentage) * 100;
-    const width = (normalizedPercentage / 100) * barWidth;
+
+    const width =
+      (lang.adjustedPercentage / 100) * barWidth;
+
     const actualWidth =
-      index === validLangs.length - 1 ? barWidth - currentX : width;
-    segments.push({ x: round1(currentX), width: round1(actualWidth), color: lang.color });
+      index === validLangs.length - 1
+        ? barWidth - currentX
+        : width;
+
+    segments.push({
+      x: round1(currentX),
+      width: round1(actualWidth),
+      color: lang.color,
+    });
+
     currentX += actualWidth;
   }
 
@@ -543,17 +616,21 @@ function renderLanguagesCard(
     )
     .join("");
 
+  // Build the two-column language legend.
   let leftLangsSvg = "";
   let rightLangsSvg = "";
-  for (let i = 0; i < topLangs.length; i++) {
-    const lang = topLangs[i];
+
+  for (let i = 0; i < validLangs.length; i++) {
+    const lang = validLangs[i];
     const colIndex = Math.floor(i / 2);
     const y = colIndex * 27;
+
     const fullLangName = lang.name;
     const shortName = truncateText(lang.name, 14);
     const escapedName = escapeHtml(shortName);
     const escapedFull = escapeHtml(fullLangName);
-    const pct = lang.percentage.toFixed(1);
+    const pct = lang.adjustedPercentage.toFixed(1);
+
     if (i % 2 === 0) {
       leftLangsSvg += `<g transform="translate(0, ${y})"><title>${escapedFull} ${pct}%</title><circle cx="6" cy="7" r="5" fill="${
         lang.color
