@@ -59,16 +59,16 @@ query($username: String!) {
       totalPullRequestReviewContributions
       totalRepositoryContributions
 
-      commitContributionsByRepository(maxRepositories: 200) {
+      commitContributionsByRepository(maxRepositories: 100) {
         repository { id }
       }
-      issueContributionsByRepository(maxRepositories: 200) {
+      issueContributionsByRepository(maxRepositories: 100) {
         repository { id }
       }
-      pullRequestContributionsByRepository(maxRepositories: 200) {
+      pullRequestContributionsByRepository(maxRepositories: 100) {
         repository { id }
       }
-      pullRequestReviewContributionsByRepository(maxRepositories: 200) {
+      pullRequestReviewContributionsByRepository(maxRepositories: 100) {
         repository { id }
       }
 
