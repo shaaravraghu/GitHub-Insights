@@ -431,10 +431,20 @@ function renderStatsCard(
       value: contributedRepos,
       color: "#60a5fa",
     },
+    
+    {
+      icon: "pr" as const,
+      label: "Code Reviews (12mo)",
+      value:
+        stats.user.contributionsCollection
+          .totalPullRequestReviewContributions ?? 0,
+      color: "#fb923c",
+    },
+
   ];
 
   const statsSvgParts = statItems.map((item, index) => {
-    const y = index * 27;
+    const y = index * 22;
     return `<g transform="translate(0, ${y})"><title>${item.label}: ${item.value.toLocaleString()}</title>${renderIcon(
       item.icon,
       0,
