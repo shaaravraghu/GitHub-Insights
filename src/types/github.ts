@@ -39,6 +39,18 @@ export interface ContributionsCollection {
   totalRepositoryContributions: number;
   contributionCalendar: ContributionCalendar;
   contributionYears: number[];
+  commitContributionsByRepository?: Array<{
+    repository: { id: string };
+  }>;
+  issueContributionsByRepository?: Array<{
+    repository: { id: string };
+  }>;
+  pullRequestContributionsByRepository?: Array<{
+    repository: { id: string };
+  }>;
+  pullRequestReviewContributionsByRepository?: Array<{
+    repository: { id: string };
+  }>;
 }
 
 export interface ContributionCalendar {
